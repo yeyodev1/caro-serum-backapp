@@ -14,6 +14,10 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
+    if (decoded.accountType !== "admin") {
+      res.status(403).json({ message: "Admin access required" });
+      return;
+    }
     req.user = decoded;
     next();
   } catch (error) {

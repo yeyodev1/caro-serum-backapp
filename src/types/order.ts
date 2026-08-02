@@ -1,6 +1,6 @@
 export type PaymentMethod = "payphone" | "transfer";
 
-export type OrderStatus = "awaiting_transfer" | "pending_payphone" | "paid";
+export type OrderStatus = "awaiting_transfer" | "pending_payphone" | "paid" | "cancelled";
 
 export interface CartItemInput {
   productId: string;

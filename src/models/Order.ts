@@ -34,13 +34,19 @@ const orderSchema = new Schema(
     status: {
       type: String,
       required: true,
-      enum: ["awaiting_transfer", "pending_payphone", "paid"] as OrderStatus[],
+      enum: ["awaiting_transfer", "pending_payphone", "paid", "cancelled"] as OrderStatus[],
     },
     subtotalCents: { type: Number, required: true, min: 0 },
     shippingCents: { type: Number, required: true, min: 0 },
     totalCents: { type: Number, required: true, min: 0 },
     clientTransactionId: { type: String, unique: true, sparse: true },
     payphoneTransactionId: { type: String },
+    paymentConfirmationEmailSentAt: { type: Date },
+    transferReceipt: {
+      publicId: { type: String },
+      url: { type: String },
+      uploadedAt: { type: Date },
+    },
   },
   { timestamps: true },
 );
