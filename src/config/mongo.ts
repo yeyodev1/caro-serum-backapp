@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+let connectionPromise: Promise<typeof mongoose> | undefined;
+
 export async function dbConnect() {
   const DB_URI = process.env.DB_URI;
 
@@ -7,11 +9,13 @@ export async function dbConnect() {
     throw new Error("DB_URI is not defined in environment variables");
   }
 
+  if (mongoose.connection.readyState === 1) return;
+
+  connectionPromise ??= mongoose.connect(DB_URI);
   try {
-    await mongoose.connect(DB_URI);
-    console.log("Connected to MongoDB");
+    await connectionPromise;
   } catch (error) {
-    console.error("MongoDB connection error:", error);
-    process.exit(1);
+    connectionPromise = undefined;
+    throw error;
   }
 }
