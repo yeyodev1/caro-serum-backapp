@@ -29,6 +29,13 @@ const orderSchema = new Schema(
       reference: { type: String, required: true, maxlength: 250 },
       googleMapsUrl: { type: String, required: true, maxlength: 2048 },
     },
+    invoice: {
+      identification: { type: String, maxlength: 13 },
+      firstName: { type: String, maxlength: 60 },
+      lastName: { type: String, maxlength: 60 },
+      email: { type: String, maxlength: 254 },
+      address: { type: String, maxlength: 250 },
+    },
     items: { type: [orderItemSchema], required: true },
     paymentMethod: { type: String, required: true, enum: ["payphone", "transfer"] as PaymentMethod[] },
     status: {

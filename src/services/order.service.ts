@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import axios from "axios";
 import { CustomError } from "../errors/customError.error";
 import { Order, OrderDocument } from "../models/Order";
-import { BuyerInput, CartItemInput, DeliveryInput, OrderItem, PaymentMethod, Product } from "../types/order";
+import { BuyerInput, CartItemInput, DeliveryInput, InvoiceInput, OrderItem, PaymentMethod, Product } from "../types/order";
 import { sendOrderEmail } from "./email.service";
 import { uploadTransferReceiptToCloudinary } from "./cloudinary.service";
 
@@ -19,6 +19,7 @@ const PRODUCTS: Record<string, Product> = {
 
 const FREE_SHIPPING_THRESHOLD_CENTS = 4900;
 const SHIPPING_FEE_CENTS = 1100;
+const INVOICE_REQUIRED_THRESHOLD_CENTS = 5000;
 const PAYPHONE_CONFIRM_URL = "https://paymentbox.payphonetodoesposible.com/api/confirm";
 
 function readBuyer(value: unknown): BuyerInput {
@@ -89,6 +90,22 @@ function readDelivery(value: unknown): DeliveryInput {
   return { country: "Ecuador", province, city, address, reference, googleMapsUrl };
 }
 
+function readInvoice(value: unknown): InvoiceInput {
+  if (!value || typeof value !== "object") throw new CustomError("Invoice details are required for orders over $50", 400);
+  const invoice = value as Record<string, unknown>;
+  const identification = typeof invoice.identification === "string" ? invoice.identification.replace(/\D/g, "") : "";
+  const firstName = typeof invoice.firstName === "string" ? invoice.firstName.trim() : "";
+  const lastName = typeof invoice.lastName === "string" ? invoice.lastName.trim() : "";
+  const email = typeof invoice.email === "string" ? invoice.email.trim().toLowerCase() : "";
+  const address = typeof invoice.address === "string" ? invoice.address.trim() : "";
+  const validIdentification = /^\d{10}$/.test(identification) || /^\d{13}$/.test(identification);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!validIdentification || !firstName || firstName.length > 60 || !lastName || lastName.length > 60 || !validEmail || email.length > 254 || !address || address.length > 250) {
+    throw new CustomError("A valid cedula or RUC, name, email, and invoice address are required for orders over $50", 400);
+  }
+  return { identification, firstName, lastName, email, address };
+}
+
 function readCart(value: unknown): OrderItem[] {
   if (!Array.isArray(value) || value.length === 0 || value.length > 20) {
     throw new CustomError("Cart must contain between 1 and 20 items", 400);
@@ -150,6 +167,7 @@ export function toPublicOrder(order: OrderDocument) {
     createdAt: order.createdAt,
     hasTransferReceipt: Boolean(order.transferReceipt?.url),
     buyerEmail: local && domain ? `${local.slice(0, 2)}${"*".repeat(Math.max(1, local.length - 2))}@${domain}` : "",
+    invoice: order.invoice?.identification ? { requested: true, email: order.invoice.email === email ? "correo registrado" : order.invoice.email } : { requested: false },
   };
 }
 
@@ -171,12 +189,15 @@ export async function createOrder(payload: unknown) {
   const subtotalCents = items.reduce((total, item) => total + item.lineTotalCents, 0);
   const shippingCents = subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_FEE_CENTS;
   const totalCents = subtotalCents + shippingCents;
+  const invoiceRequired = totalCents > INVOICE_REQUIRED_THRESHOLD_CENTS;
+  const invoice = invoiceRequired || body.invoice ? readInvoice(body.invoice) : undefined;
   const clientTransactionId = paymentMethod === "payphone" ? `OMG-${randomUUID().replace(/-/g, "")}` : undefined;
   const config = paymentMethod === "payphone" ? payphoneConfig() : undefined;
   const order = await Order.create({
     publicReference: `OMG-${randomUUID().replace(/-/g, "")}`,
     buyer,
     delivery,
+    invoice,
     items,
     paymentMethod,
     status: paymentMethod === "transfer" ? "awaiting_transfer" : "pending_payphone",
@@ -237,6 +258,7 @@ export async function listAdminOrders() {
     ...toPublicOrder(order),
     buyer: order.buyer,
     delivery: order.delivery,
+    invoice: order.invoice,
     transferReceiptUploadedAt: order.transferReceipt?.uploadedAt,
   }));
 }

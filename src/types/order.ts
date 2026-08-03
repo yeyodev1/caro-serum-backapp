@@ -23,6 +23,14 @@ export interface DeliveryInput {
   googleMapsUrl: string;
 }
 
+export interface InvoiceInput {
+  identification: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  address: string;
+}
+
 export interface Product {
   id: string;
   name: string;

@@ -42,12 +42,13 @@ export async function sendOrderEmail(order: OrderDocument, receiptUploaded = fal
     : order.paymentMethod === "transfer"
       ? "Tu pedido fue recibido. Realiza la transferencia y sube tu comprobante para que podamos verificarlo."
       : "Tu pedido fue recibido. Te avisaremos cuando el pago sea confirmado.";
+  const invoiceMessage = order.invoice?.identification ? `\n\nRecibimos tus datos de facturación. La factura se emitirá pronto y llegará al correo ${order.invoice.email}.` : "";
   const siteUrl = (process.env.PUBLIC_SITE_URL?.trim() || "https://testing-storybrand-frontend.bakano.ec").replace(/\/+$/, "");
   const orderUrl = `${siteUrl}/order-status?reference=${encodeURIComponent(order.publicReference)}`;
   const whatsappUrl = `https://wa.me/593998655256?text=${encodeURIComponent(`Hola OMG Lashes, necesito ayuda con mi pedido ${order.publicReference}.`)}`;
 
   try {
-    const customer = { to: recipient, subject: `OMG Lashes: pedido ${order.publicReference}`, text: `Hola ${buyer.firstName},\n\n${customerMessage}\n\nPedido: ${order.publicReference}\nTotal: ${money(order.totalCents)}.\n\nConsulta los detalles y el estado: ${orderUrl}\n\n¿Necesitas ayuda? Escríbenos por WhatsApp: ${whatsappUrl}\n\nPara una atención más rápida por WhatsApp, no modifiques el mensaje prellenado.` };
+    const customer = { to: recipient, subject: `OMG Lashes: pedido ${order.publicReference}`, text: `Hola ${buyer.firstName},\n\n${customerMessage}${invoiceMessage}\n\nPedido: ${order.publicReference}\nTotal: ${money(order.totalCents)}.\n\nConsulta los detalles y el estado: ${orderUrl}\n\n¿Necesitas ayuda? Escríbenos por WhatsApp: ${whatsappUrl}\n\nPara una atención más rápida por WhatsApp, no modifiques el mensaje prellenado.` };
     const admin = adminEmail ? { to: adminEmail, subject: `${receiptUploaded ? "Comprobante recibido" : "Actualizacion de pedido"}: ${order.publicReference}`, text: `${buyer.firstName} ${buyer.lastName}\n${buyer.email}\n${buyer.phone}\nPedido: ${order.publicReference}\nTotal: ${money(order.totalCents)}\nEstado: ${order.status}` } : null;
     const messages = [customer, ...(admin ? [admin] : [])];
     const results = await Promise.allSettled(messages.map((message) => resendApiKey
