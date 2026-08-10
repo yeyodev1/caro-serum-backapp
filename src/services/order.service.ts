@@ -11,14 +11,16 @@ const PRODUCTS: Record<string, Product> = {
   "serum-5ml": { id: "serum-5ml", name: "Serum 5ml", priceCents: 2000 },
   "eyeliner-2in1": { id: "eyeliner-2in1", name: "Eyeliner 2 in 1", priceCents: 2000 },
   "collagen-mask-1": { id: "collagen-mask-1", name: "Collagen Mask (1)", priceCents: 250 },
-  "collagen-mask-5": { id: "collagen-mask-5", name: "Collagen Mask (5)", priceCents: 1000 },
+  "collagen-mask-5": { id: "collagen-mask-5", name: "Collagen Mask (5)", priceCents: 990 },
   "collagen-mask-10": { id: "collagen-mask-10", name: "Collagen Mask (10)", priceCents: 1500 },
   "combo-doble": { id: "combo-doble", name: "Combo Doble", priceCents: 4900 },
   "combo-trio": { id: "combo-trio", name: "Combo Trio", priceCents: 5900 },
+  "combo-trio-masks": { id: "combo-trio-masks", name: "Combo Trio + 5 Masks", priceCents: 6900 },
 };
 
-const FREE_SHIPPING_THRESHOLD_CENTS = 4900;
-const SHIPPING_FEE_CENTS = 1100;
+// Shipping is $6 flat; combos ship free.
+const SHIPPING_FEE_CENTS = 600;
+const COMBO_ID_PREFIX = "combo-";
 const INVOICE_REQUIRED_THRESHOLD_CENTS = 5000;
 const PAYPHONE_CONFIRM_URL = "https://paymentbox.payphonetodoesposible.com/api/confirm";
 
@@ -68,26 +70,11 @@ function readDelivery(value: unknown): DeliveryInput {
   const city = typeof delivery.city === "string" ? delivery.city.trim() : "";
   const address = typeof delivery.address === "string" ? delivery.address.trim() : "";
   const reference = typeof delivery.reference === "string" ? delivery.reference.trim() : "";
-  const googleMapsUrl = typeof delivery.googleMapsUrl === "string" ? delivery.googleMapsUrl.trim() : "";
 
-  let validGoogleMapsUrl = false;
-  try {
-    const url = new URL(googleMapsUrl);
-    const hostname = url.hostname.toLowerCase();
-    validGoogleMapsUrl = url.protocol === "https:" && (
-      hostname === "maps.google.com" ||
-      hostname === "goo.gl" ||
-      hostname === "maps.app.goo.gl" ||
-      (hostname === "www.google.com" && (url.pathname === "/maps" || url.pathname.startsWith("/maps/")))
-    );
-  } catch {
-    validGoogleMapsUrl = false;
+  if (country !== "Ecuador" || !province || province.length > 100 || !city || city.length > 100 || !address || address.length > 250 || !reference || reference.length > 250) {
+    throw new CustomError("delivery.country must be Ecuador; delivery.province, delivery.city, delivery.address, and delivery.reference are required", 400);
   }
-
-  if (country !== "Ecuador" || !province || province.length > 100 || !city || city.length > 100 || !address || address.length > 250 || !reference || reference.length > 250 || !googleMapsUrl || googleMapsUrl.length > 2048 || !validGoogleMapsUrl) {
-    throw new CustomError("delivery.country must be Ecuador; delivery.province, delivery.city, delivery.address, delivery.reference, and a valid Google Maps URL are required", 400);
-  }
-  return { country: "Ecuador", province, city, address, reference, googleMapsUrl };
+  return { country: "Ecuador", province, city, address, reference };
 }
 
 function readInvoice(value: unknown): InvoiceInput {
@@ -187,7 +174,7 @@ export async function createOrder(payload: unknown) {
   const delivery = readDelivery(body.delivery);
   const items = readCart(body.cart);
   const subtotalCents = items.reduce((total, item) => total + item.lineTotalCents, 0);
-  const shippingCents = subtotalCents >= FREE_SHIPPING_THRESHOLD_CENTS ? 0 : SHIPPING_FEE_CENTS;
+  const shippingCents = items.some((item) => item.productId.startsWith(COMBO_ID_PREFIX)) ? 0 : SHIPPING_FEE_CENTS;
   const totalCents = subtotalCents + shippingCents;
   const invoiceRequired = totalCents > INVOICE_REQUIRED_THRESHOLD_CENTS;
   const invoice = invoiceRequired || body.invoice ? readInvoice(body.invoice) : undefined;
