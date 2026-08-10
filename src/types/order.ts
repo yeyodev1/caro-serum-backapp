@@ -20,7 +20,6 @@ export interface DeliveryInput {
   city: string;
   address: string;
   reference: string;
-  googleMapsUrl: string;
 }
 
 export interface InvoiceInput {
