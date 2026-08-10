@@ -27,7 +27,8 @@ const orderSchema = new Schema(
       city: { type: String, required: true, maxlength: 100 },
       address: { type: String, required: true, maxlength: 250 },
       reference: { type: String, required: true, maxlength: 250 },
-      googleMapsUrl: { type: String, required: true, maxlength: 2048 },
+      // Kept optional so historical orders retain the link the checkout used to collect.
+      googleMapsUrl: { type: String, required: false, maxlength: 2048 },
     },
     invoice: {
       identification: { type: String, maxlength: 13 },
