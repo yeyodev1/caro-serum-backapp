@@ -12,6 +12,8 @@ const whitelist = [
   "http://localhost:8101",
   "https://testing-storybrand-frontend.bakano.ec",
   "https://serum-frontapp.vercel.app",
+  "https://omglashes.ec",
+  "https://www.omglashes.ec",
 ];
 
 const corsOptions: cors.CorsOptions = {
