@@ -5,6 +5,8 @@ const orderItemSchema = new Schema(
   {
     productId: { type: String, required: true },
     name: { type: String, required: true },
+    // Optional so historical items keep working; new orders always store it.
+    contents: { type: String, required: false, maxlength: 250 },
     unitPriceCents: { type: Number, required: true, min: 0 },
     quantity: { type: Number, required: true, min: 1 },
     lineTotalCents: { type: Number, required: true, min: 0 },

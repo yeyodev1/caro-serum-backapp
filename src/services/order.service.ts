@@ -6,16 +6,18 @@ import { BuyerInput, CartItemInput, DeliveryInput, InvoiceInput, OrderItem, Paym
 import { sendOrderEmail } from "./email.service";
 import { uploadTransferReceiptToCloudinary } from "./cloudinary.service";
 
+// Los nombres y el contenido se guardan en cada pedido y son los que lee el panel
+// de admin, asi que deben describir el producto en espanol igual que la landing.
 const PRODUCTS: Record<string, Product> = {
-  "serum-10ml": { id: "serum-10ml", name: "Serum 10ml", priceCents: 3500 },
-  "serum-5ml": { id: "serum-5ml", name: "Serum 5ml", priceCents: 2000 },
-  "eyeliner-2in1": { id: "eyeliner-2in1", name: "Eyeliner 2 in 1", priceCents: 2000 },
-  "collagen-mask-1": { id: "collagen-mask-1", name: "Collagen Mask (1)", priceCents: 250 },
-  "collagen-mask-5": { id: "collagen-mask-5", name: "Collagen Mask (5)", priceCents: 990 },
-  "collagen-mask-10": { id: "collagen-mask-10", name: "Collagen Mask (10)", priceCents: 1500 },
-  "combo-doble": { id: "combo-doble", name: "Combo Doble", priceCents: 4900 },
-  "combo-trio": { id: "combo-trio", name: "Combo Trio", priceCents: 5900 },
-  "combo-trio-masks": { id: "combo-trio-masks", name: "Combo Trio + 5 Masks", priceCents: 6900 },
+  "serum-10ml": { id: "serum-10ml", name: "Serum OMG Lashes 10 ml", contents: "Tratamiento de 3 a 5 meses", priceCents: 3500 },
+  "serum-5ml": { id: "serum-5ml", name: "Serum OMG Lashes 5 ml", contents: "Tratamiento de 1 a 2 meses", priceCents: 2000 },
+  "eyeliner-2in1": { id: "eyeliner-2in1", name: "Delineador 2 en 1", contents: "Delineador + serum de crecimiento", priceCents: 2000 },
+  "collagen-mask-1": { id: "collagen-mask-1", name: "Mascarilla de colágeno", contents: "1 unidad", priceCents: 250 },
+  "collagen-mask-5": { id: "collagen-mask-5", name: "Mascarilla de colágeno", contents: "Pack de 5 unidades", priceCents: 990 },
+  "collagen-mask-10": { id: "collagen-mask-10", name: "Mascarilla de colágeno", contents: "Pack de 10 unidades", priceCents: 1500 },
+  "combo-doble": { id: "combo-doble", name: "Combo Doble Crecimiento", contents: "Serum 10 ml + Serum 5 ml", priceCents: 4900 },
+  "combo-trio": { id: "combo-trio", name: "Combo Trío Completo", contents: "Serum 10 ml + Serum 5 ml + Delineador 2 en 1", priceCents: 5900 },
+  "combo-trio-masks": { id: "combo-trio-masks", name: "Combo Trío + 5 Mascarillas", contents: "Serum 10 ml + Serum 5 ml + Delineador 2 en 1 + 5 mascarillas de colágeno", priceCents: 6900 },
 };
 
 // Shipping is $6 flat; combos ship free.
@@ -113,6 +115,7 @@ function readCart(value: unknown): OrderItem[] {
     return {
       productId: product.id,
       name: product.name,
+      contents: product.contents,
       unitPriceCents: product.priceCents,
       quantity,
       lineTotalCents: product.priceCents * quantity,
@@ -142,6 +145,7 @@ export function toPublicOrder(order: OrderDocument) {
     items: order.items.map((item) => ({
       productId: item.productId,
       name: item.name,
+      contents: item.contents || "",
       unitPriceCents: item.unitPriceCents,
       quantity: item.quantity,
       lineTotalCents: item.lineTotalCents,
@@ -239,15 +243,57 @@ export async function uploadTransferReceipt(reference: string, payload: unknown)
   return toPublicOrder(order);
 }
 
+// El panel necesita el contacto y la direccion completos, no la version enmascarada
+// que ve el cliente, para poder despachar y facturar cada pedido.
+function toAdminOrder(order: OrderDocument) {
+  const invoice = order.invoice;
+  return {
+    reference: order.publicReference,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    createdAt: order.createdAt,
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      name: item.name,
+      contents: item.contents || "",
+      unitPriceCents: item.unitPriceCents,
+      quantity: item.quantity,
+      lineTotalCents: item.lineTotalCents,
+    })),
+    subtotalCents: order.subtotalCents,
+    shippingCents: order.shippingCents,
+    totalCents: order.totalCents,
+    buyer: {
+      firstName: order.buyer?.firstName || "",
+      lastName: order.buyer?.lastName || "",
+      email: order.buyer?.email || "",
+      phone: order.buyer?.phone || "",
+    },
+    delivery: {
+      province: order.delivery?.province || "",
+      city: order.delivery?.city || "",
+      address: order.delivery?.address || "",
+      reference: order.delivery?.reference || "",
+      googleMapsUrl: order.delivery?.googleMapsUrl || "",
+    },
+    invoice: invoice?.identification
+      ? {
+          identification: invoice.identification,
+          firstName: invoice.firstName || "",
+          lastName: invoice.lastName || "",
+          email: invoice.email || "",
+          address: invoice.address || "",
+        }
+      : null,
+    hasTransferReceipt: Boolean(order.transferReceipt?.url),
+    transferReceiptUploadedAt: order.transferReceipt?.uploadedAt,
+    payphoneTransactionId: order.payphoneTransactionId || "",
+  };
+}
+
 export async function listAdminOrders() {
   const orders = await Order.find().sort({ createdAt: -1 }).limit(500);
-  return orders.map((order) => ({
-    ...toPublicOrder(order),
-    buyer: order.buyer,
-    delivery: order.delivery,
-    invoice: order.invoice,
-    transferReceiptUploadedAt: order.transferReceipt?.uploadedAt,
-  }));
+  return orders.map(toAdminOrder);
 }
 
 export async function getAdminTransferReceipt(reference: string) {

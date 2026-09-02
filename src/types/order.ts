@@ -33,12 +33,15 @@ export interface InvoiceInput {
 export interface Product {
   id: string;
   name: string;
+  /** Detalle legible de lo que trae el producto o combo. */
+  contents: string;
   priceCents: number;
 }
 
 export interface OrderItem {
   productId: string;
   name: string;
+  contents?: string;
   unitPriceCents: number;
   quantity: number;
   lineTotalCents: number;
