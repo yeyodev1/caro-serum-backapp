@@ -12,6 +12,7 @@ export interface BuyerInput {
   lastName: string;
   email: string;
   phone: string;
+  identification: string;
 }
 
 export interface DeliveryInput {

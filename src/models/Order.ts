@@ -22,6 +22,8 @@ const orderSchema = new Schema(
       lastName: { type: String, required: true, maxlength: 60 },
       email: { type: String, required: true, maxlength: 254 },
       phone: { type: String, required: true, maxlength: 16 },
+      // Optional so historical orders keep working; new orders always store it.
+      identification: { type: String, required: false, maxlength: 13 },
     },
     delivery: {
       country: { type: String, required: true, enum: ["Ecuador"] },

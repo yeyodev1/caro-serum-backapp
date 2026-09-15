@@ -36,16 +36,20 @@ function readBuyer(value: unknown): BuyerInput {
   const validName = /^[\p{L}][\p{L}\p{M}'-]*(?: [\p{L}][\p{L}\p{M}'-]*)*$/u;
   const validEmail = /^(?!.*\.\.)[A-Z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;
 
+  const identification = typeof buyer.identification === "string" ? buyer.identification.replace(/\D/g, "") : "";
+
   const validPhone = /^(?:\+593|593|0)?9\d{8}$/.test(phone) || /^\+?[1-9]\d{6,14}$/.test(phone);
+  const validIdentification = /^\d{10}$/.test(identification) || /^\d{13}$/.test(identification);
   if (!firstName || firstName.length > 60 || !validName.test(firstName) || !lastName || lastName.length > 60 || !validName.test(lastName) || !validEmail.test(email) || email.length > 254 || !validPhone) {
     throw new CustomError("buyer.firstName, buyer.lastName, a valid buyer.email, and buyer.phone are required", 400);
   }
+  if (!validIdentification) throw new CustomError("Ingresa una cédula (10 dígitos) o RUC (13 dígitos) válido", 400);
   const normalizedPhone = /^09\d{8}$/.test(phone)
     ? `+593${phone.slice(1)}`
     : /^5939\d{8}$/.test(phone)
       ? `+${phone}`
       : phone.startsWith("+") ? phone : `+${phone}`;
-  return { firstName, lastName, email, phone: normalizedPhone };
+  return { firstName, lastName, email, phone: normalizedPhone, identification };
 }
 
 function normalizePhone(value: string) {
@@ -268,6 +272,7 @@ function toAdminOrder(order: OrderDocument) {
       lastName: order.buyer?.lastName || "",
       email: order.buyer?.email || "",
       phone: order.buyer?.phone || "",
+      identification: order.buyer?.identification || order.invoice?.identification || "",
     },
     delivery: {
       province: order.delivery?.province || "",
@@ -308,8 +313,8 @@ export async function updateOrderStatus(reference: string, status: unknown) {
   if (!order) throw new CustomError("Order not found", 404);
   order.status = status;
   await order.save();
+  // Cancelar solo descarta intentos abandonados en el panel: no se le escribe al cliente.
   if (status === "paid") await sendPaymentConfirmationEmail(order);
-  else void sendOrderEmail(order);
   return toPublicOrder(order);
 }
 
